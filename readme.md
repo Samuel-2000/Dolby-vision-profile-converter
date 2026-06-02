@@ -16,7 +16,7 @@ A Python script that automatically converts **Dolby Vision Profile 7** MKV files
 - **Python 3.6+** (standard library only, no extra packages)
 - **MKVToolNix** (provides `mkvmerge` and `mkvextract`)
 - **dovi_tool** (the Rust-based Dolby Vision tool)
-- **MediaInfo CLI** (specifically the CLI version, e.g., `mediainfo_CLI` or `mediainfo`)
+- **MediaInfo CLI** (specifically the CLI version)
 
 All three external tools must be accessible via your system’s `PATH`, or you can set the full paths directly in the script’s configuration section.
 
@@ -33,3 +33,36 @@ All three external tools must be accessible via your system’s `PATH`, or you c
 3. Open a terminal in that folder and run:
    ```bash
    python dv7_to_dv8.py
+   ```
+4. The script will process every MKV file sequentially and skip any file that already has a `_p8.mkv` output.
+
+> **Important:** This script **deletes the original MKV file** after a successful conversion. Make sure you have a backup if needed, or simply change the script not to delete the original.
+
+## Configuration
+
+If the tools are not in your `PATH`, edit the top of the script:
+
+```python
+MEDIAINFO  = "C:/tools/mediainfo_CLI.exe"  # full path
+MKVEXTRACT = "C:/tools/mkvextract.exe"
+MKVMERGE   = "C:/tools/mkvmerge.exe"
+DOVI_TOOL  = "C:/tools/dovi_tool.exe"
+```
+
+## Process flow
+
+For each MKV file `movie.mkv`:
+- Checks for `movie_p8.mkv` → skip if exists.
+- Checks for existing `movie.hevc` (extracted raw video) → if not present, extract video track.
+- Checks for existing `movie_p8_temp.hevc` (converted video) → if not present, run `dovi_tool -m 2 convert --discard`.
+- Deletes the extracted P7 raw video after successful conversion.
+- Muxes: `mkvmerge -o movie_p8.mkv --no-video movie.mkv movie_p8_temp.hevc`
+- Deletes the original `movie.mkv` and the temporary P8 stream.
+
+
+## Notes
+
+- The script assumes the video track ID is correctly detected by parsing `mkvmerge -i` output. If that fails, it defaults to track `0`, which may not work. You can manually set the track ID if needed.
+- Only **Profile 7.x** files are processed. Already Profile 8 or other HDR formats are skipped.
+- The conversion command discards the EL (enhancement layer) which is appropriate for Profile 8.1 playback compatibility.
+- Tested on Windows; should work on Linux/macOS if the tools are available and the paths are adjusted.
